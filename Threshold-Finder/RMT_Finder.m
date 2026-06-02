@@ -1,0 +1,88 @@
+%% set up file_____________________________________________________________
+% hl_startup (get subject numbers)
+e=hlP16_startup(16,'MotorCognition',8,'RMT_finder','');                     % set up variables and directories
+hl_keycodes;
+cd('D:\TMSMultiLab\Threshold-Finder');                                      % cd to main directory
+subjectfolder=fullfile('D:\TMSMultiLab\Threshold-Finder\data',sprintf('S%d',e.p));
+if ~exist(subjectfolder,'dir')
+    mkdir(subjectfolder);
+end
+rawfolder=fullfile(subjectfolder,'raw');
+if ~exist(rawfolder,'dir')
+    mkdir(rawfolder);
+end
+
+%% set Max & Min___________________________________________________________
+Intensity_max=90;                                                           % max intensity
+Intensity_min=20;                                                           % min intensity
+
+
+%% set up EMG signal_______________________________________________________
+daq.reset; % reset something
+daq.HardwareInfo.getInstance('DisableReferenceClockSynchronization',true);  % this disables reference clock synchronisation, an incompatibility between the PXI/PCI chassis, NI Card, and some clock
+sIN=daq.createSession('ni');                                                % setup NIDAQ session and object
+sIN.Rate=1200; % sampling frequency
+sIN.addDigitalChannel('Dev1','Port1/Line6','InputOnly');                    % TMS1 IN
+sIN.addDigitalChannel('Dev1','Port1/Line5','InputOnly');                    % TMS2 IN
+sIN.addAnalogInputChannel('Dev1',4:7,'Voltage');                            % add 5 analogue input channels (EMG, TMS trigger)
+sOUT=daq.createSession('ni');                                               % setup NIDAQ session and object
+sOUT.addDigitalChannel('Dev1','Port1/Line7','InputOnly');                   % digital input for pedal
+sOUT.addDigitalChannel('Dev1','Port0/Line6','OutputOnly');                  % digital output(s) for trigger (TMS1)
+sOUT.addDigitalChannel('Dev1','Port0/Line7','OutputOnly');                  % digital output(s) for trigger (TMS2)
+sOUT.outputSingleScan([0,0]);
+
+%% SET UP TMS MACHINE______________________________________________________
+%% single stimulator - TOP, RED, TMS1
+% TMS1=magstim('COM8');                                                       % use MAGIC toolbox to control Magstim TMS1
+% TMS1.connect();
+% TMS2=magstim('COM9');                                                       % use MAGIC toolbox to control Magstim TMS2
+% TMS2.connect();
+
+%% get initial MEG signal__________________________________________________    
+duration=0.1;                                                                 % how long is the window showing single
+samplingRate=4000;                                                          % sampling rate
+gain=2.5;                                                                   % how much to multiply NI-Matlab signal to match PowerLab (5mV range=2.5; 10mV range=5)
+numsamples=samplingRate*duration;                                           % how many samples
+emgDate=nan(numsamples,size(sIN.Channels,2));                               % emg data
+%% signal display__________________________________________________________
+figure;
+set(gcf,'Position',[500,100,700,800]);
+subplot(size(sIN.Channels,2),1,1);
+axis([0,1,-1,1]);
+
+%% signal input____________________________________________________________
+xData=[];
+yData=[];
+running=true;
+tic;                                                                        % start timer 
+while running
+    for i=1:numsamples                                                      % collect for about 10ms (leaving ~6ms to calculate and change the screen)
+        emgDate(i,:)=sIN.inputSingleScan.*gain;                             % 1.2ms?
+        start=toc;
+        now=toc;
+        while now<start+(1/samplingRate)                                    % control loop time                     
+            now=toc;
+        end
+    end
+    % pre-process data
+    emgDate=emgDate-mean(emgDate);                                          % remove DC offset
+    rectemgDate=emgDate.^2;                                                 % RMSE
+    time=(0:numsamples-1)/samplingRate;                                     % time for the emg
+    xData=[xData,time];                                                     % add on time
+    yData=[yData,emgDate'];                                                 % add on emg
+    for c=1:size(sIN.Channels,2)                                         % channel for display
+        subplot(size(sIN.Channels,2),1,c);                               % subplot each channel
+        plot(time,emgDate(:,c),'r');                                        % plot data
+        axis([0,duration,-1,1]);                                                   
+        drawnow;
+    end
+    [keyIsDown,~,keyCode]=KbCheck; 
+    if keyIsDown
+        running=false;
+   end
+end
+
+
+
+
+
