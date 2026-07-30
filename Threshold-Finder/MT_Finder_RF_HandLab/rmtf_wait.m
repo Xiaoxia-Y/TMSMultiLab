@@ -1,4 +1,4 @@
-function [wait,clock,update_time]=rmtf_wait(interval,initial_time)
+function [wait,clock,update_time] = rmtf_wait(interval,initial_time)
 %% rmtf_wait meansures the elapsed time interval and returns true when the interval reaches the specified duration.
 
 % Inputs:
@@ -12,16 +12,16 @@ function [wait,clock,update_time]=rmtf_wait(interval,initial_time)
 
 
 % Get curent time
-clock=GetSecs;
+clock = GetSecs;
 
 % Calculate the target time.
-update_time=initial_time+interval;
+update_time = initial_time+interval;
 
 % Check whether the specified time interval has elapsed.
-if clock>=update_time
-    wait=1;
+if clock >= update_time
+    wait = 1;
 else
-    wait=0;
+    wait = 0;
 end
 
 end

@@ -9,10 +9,10 @@ if isnan(mt(i,:))
     TMS.setAmplitudeA(i);
 
     %% Mark this intensity as initialized
-    mt(i,:)= 0;
+    mt(i,:) = 0;
 
     %% Reset the time pulse count
-    T=0;
+    T = 0;
 
     %% clock for the pulse
     clock = GetSecs;

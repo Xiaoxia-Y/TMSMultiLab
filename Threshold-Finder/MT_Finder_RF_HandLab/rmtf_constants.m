@@ -9,7 +9,7 @@ emg.rms.duration = 0.1;                                                     % du
 emg.rms.start = -0.102;                                                     % when to record the RMS (relative to the TMS pulse, seconds)
 emg.rms.end = -0.002;                                                       % when to stop record the RMS (relative to the TMS pulse, seconds)
 emg.rms.min = 0;                                                            % minimum acceptable RMS to trigger a TMS pulse (same unit as the powerlab)
-emg.rms.max = 10;                                                           % maximum acceptable RMS to trigger a TMS pulse (same unit as the powerlab)
+emg.rms.max = 0.01;                                                         % maximum acceptable RMS to trigger a TMS pulse (same unit as the powerlab)
 
 emg.mep.on = 10;                                                            % start of MEP measurement window after TMS
 emg.mep.off = 50;                                                           % end of MEP measurement window after TMS

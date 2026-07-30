@@ -29,9 +29,9 @@ function rmtf_callback(~,event)
 global emg_asynch_data emg_asynch_time emg_asynch_chunk emg_asynch_chunktime
 
 %% Variables
-emg_asynch_chunk=event.Data;                                                 % chunk of data                         
-emg_asynch_chunktime=event.TimeStamps;                                       % chunk of timestamps
-emg_asynch_data=[emg_asynch_data;event.Data];                                % vector of data
-emg_asynch_time=[emg_asynch_time;event.TimeStamps];                          % vector of timestamps
+emg_asynch_chunk = event.Data;                                                 % chunk of data                         
+emg_asynch_chunktime = event.TimeStamps;                                       % chunk of timestamps
+emg_asynch_data = [emg_asynch_data;event.Data];                                % vector of data
+emg_asynch_time = [emg_asynch_time;event.TimeStamps];                          % vector of timestamps
 
 end

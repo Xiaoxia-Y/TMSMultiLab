@@ -19,18 +19,18 @@ run_next_intensity = true;                                                  % TR
 while run_next_intensity                                                    % INTENSITY CONTROL
 
     %% FIND THE CURRENT INTENSITY
-    i=rmtf_midpoint(tms.intensity.min,tms.intensity.max);                   % CALCULATE MIDPOINT BETWEEN MIN INTENSITY AND MAX INTENSITY
+    i = rmtf_midpoint(tms.intensity.min,tms.intensity.max);                 % CALCULATE MIDPOINT BETWEEN MIN INTENSITY AND MAX INTENSITY
 
     %% WHETHER CURRENT i HAS BEEN TESTED
-    has_value=rmtf_has_value(mt(i,:));                                      % CHECK IF CURRENT i HAS VALUE
+    has_value = rmtf_has_value(mt(i,:));                                    % CHECK IF CURRENT i HAS VALUE
 
     if has_value                                                            % IF CURRENT i HAS VALUE
-        run_next_intensity =false;                                          % STOP TEST
+        run_next_intensity = false;                                         % STOP TEST
         idx = find(mt(:,1) >= 5, 1, 'first');                               % INDEX FOR MOTOR THRESHOLD
         MT = mt(idx, 1);                                                    % FIND THE MOTOR THRESHOLD
     end
 
-    %% IF CURRENT i has not been tested f current i has not been tested
+    %% IF CURRENT i has not been tested
     while ~has_value                                                        % IF CURRENT i HAS NOT BEEN TESTED
 
         %% SET TMS, mt, T, AND CLOCK
@@ -39,16 +39,16 @@ while run_next_intensity                                                    % IN
         drawnow;                                                            % ALLOW THE BACKGROUD CALLBACK TO UPDATA THE THE EMG DATA
 
         %% IS THE TIME FIFFERENCE BETWEEN THE NEXT PULSE ADN THE PREVIOUS PULSE GREATER THAN TMS INTERVAL
-        [wait,tms.clock,tms.update.time]=rmtf_wait(tms.interval,tms.trigger.time); % CHECK TIME INTERIVAL 
+        [wait,tms.clock,tms.update.time] = rmtf_wait(tms.interval,tms.trigger.time); % CHECK TIME INTERIVAL 
 
         %% MEASURE RMS
-        [rms]=rmtf_measure_RMS(emg_asynch_chunk(:,emg.muscle) * ni_gain);   % MEASURE RMS FOR EACH CHUNK OF DATA
+        [rms] = rmtf_measure_RMS(emg_asynch_chunk(:,emg.muscle) * ni_gain);   % MEASURE RMS FOR EACH CHUNK OF DATA
 
         %% ASSESS RMS 
-        [rms.inrange]=rmtf_is_in_range(rms.value,emg.rms.min,emg.rms.max);  % ASSESS WHETHER RMS IS IN RANGE
+        [rms.inrange] = rmtf_is_in_range(rms.value,emg.rms.min,emg.rms.max);  % ASSESS WHETHER RMS IS IN RANGE
         
         %% PRESENT TMS 
-        [tms]=rmtf_present_TMS(s_tms,tms,rms.inrange,wait);                 % PRESENT TMS IF ALL CRITERIONS MET
+        [tms] = rmtf_present_TMS(s_tms,tms,rms.inrange,wait);                 % PRESENT TMS IF ALL CRITERIONS MET
 
         %% ACQUIRE EMG 
         if ~isempty(emg_asynch_data)                                        % WHEN EMG_ASYNCH_DATA COLLECTED DATA
@@ -68,7 +68,7 @@ while run_next_intensity                                                    % IN
                 if ~wait_for_data
                     emg.asynch.data(T,:) = asynch_data;                     % SAVE MEP WINDOW FOR CURRENT PULSE
                 end
-                
+
                 %% UPDATE T
                 [T] = rmtf_update_valid(T, ~wait_for_data, 1);              % UPDATA T WHEN WE ACQUIRED MEP WINDOW
             end

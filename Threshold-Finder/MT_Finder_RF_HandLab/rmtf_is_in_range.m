@@ -1,4 +1,4 @@
-function [inrange]=rmtf_is_in_range(data,range_min,range_max)
+function [inrange] = rmtf_is_in_range(data,range_min,range_max)
 %% rmtf_is_in_range -> check whether a value is within a specified range
 
 % Inputs:
@@ -11,10 +11,10 @@ function [inrange]=rmtf_is_in_range(data,range_min,range_max)
 %               otherwise false.
 
 % Check whether the value is within the specified range.
-if data>=range_min && data<=range_max
-    inrange=1;
+if data >= range_min && data <= range_max
+    inrange = 1;
 else
-    inrange=0;
+    inrange = 0;
 end
 
 end

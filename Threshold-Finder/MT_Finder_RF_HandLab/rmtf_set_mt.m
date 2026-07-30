@@ -6,4 +6,4 @@
 % This allows the current intensity (i) to be located directly in the first column
 % rather than by using an index. A more efficient implementation will be added later.
 
-mt=nan(tms.intensity.max,2);                                 % vector for possible intensities (mt(min %MSO : max %MSO,[valid,invalid]);
+mt = nan(tms.intensity.max,2);                                 % vector for possible intensities (mt(min %MSO : max %MSO,[valid,invalid]);

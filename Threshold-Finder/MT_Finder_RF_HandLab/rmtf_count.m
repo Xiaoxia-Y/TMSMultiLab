@@ -1,4 +1,4 @@
-function [count]=rmtf_count(T,trials)
+function [count] = rmtf_count(T,trials)
 %% Check whether two values are equal.
 
 % Inputs:
