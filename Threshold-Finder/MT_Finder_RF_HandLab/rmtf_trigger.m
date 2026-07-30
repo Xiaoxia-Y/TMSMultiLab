@@ -1,5 +1,5 @@
 function [trigger] = rmtf_trigger(data, samplehz,trigger)
-% Trigger Detect TTL trigger (digital) from a trigger channel
+% rmtf_trigger detect TTL trigger (digital) from a trigger channel
 
 % Inputs:
 % data (Nx1)  -> trigger channel (only contains one trigger)
