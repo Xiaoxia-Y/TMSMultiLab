@@ -26,12 +26,12 @@ function rmtf_callback(~,event)
 % update the shared variables.
 
 %% Global variables
-global emg_asynch_data emg_asynch_time emg_asynch_chunk emg_asynch_chunktime
+global emg_asynch_data emg_asynch_time emg_asynch_chunk emg_asynch_chunktime % is this re-doing something already done?
 
 %% Variables
 emg_asynch_chunk = event.Data;                                                 % chunk of data                         
 emg_asynch_chunktime = event.TimeStamps;                                       % chunk of timestamps
-emg_asynch_data = [emg_asynch_data;event.Data];                                % vector of data
-emg_asynch_time = [emg_asynch_time;event.TimeStamps];                          % vector of timestamps
+emg_asynch_data = [emg_asynch_data; event.Data];                               % vector of data
+emg_asynch_time = [emg_asynch_time; event.TimeStamps];                         % vector of timestamps
 
 end

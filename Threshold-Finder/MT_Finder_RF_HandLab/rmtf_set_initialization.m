@@ -3,15 +3,15 @@
 % Once mt(i,:) is set to 0, this condition will no longer be true.
 % This ensures that the TMS can only be armed once.
 
-if isnan(mt(i,:))                                                          
+if sum(isnan(mt(idx,1:2)))==2                                                         
 
     %% set intensity
-    TMS.setAmplitudeA(i);
+    TMS.setAmplitudeA(i); % i used as an INTENSITY
 
     %% Mark this intensity as initialized
-    mt(i,:) = 0;
+    mt(idx,1:2) = 0; % idx used as an index
 
-    %% Reset the time pulse count
+    %% Reset the TMS trials (repetitions per average MEP) pulse count (from 0 to tms.trials)
     T = 0;
 
     %% clock for the pulse

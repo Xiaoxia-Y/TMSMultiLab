@@ -1,4 +1,4 @@
-function [tms] = rmtf_present_TMS(s_tms,tms,RMS,wait)
+function [tms] = rmtf_present_TMS(s_tms,tms)
 %% Deliver a TMS pulse under different triggering conditions.
 
 % The TMS pulse can be triggered without conditions, based on the baseline
@@ -33,7 +33,7 @@ if ~isfield(tms.trigger, 'time')
     tms.trigger.time = [];
 end
 
-if nargin <= 2
+if nargin == 2
     s_tms.outputSingleScan([1,0]);                                         % Present TMS 
     tms.trigger.condition = true;                                          % TMS condition (false = has not given pulse, ture = has given pulse)
     tms.trigger.time = GetSecs;                                            % Acquire time 
@@ -41,36 +41,6 @@ if nargin <= 2
     if tms.trigger.condition                                               
         s_tms.outputSingleScan([0,0]);                                     % Stop TMS
     end
-
-elseif nargin == 3
-
-    if RMS
-        s_tms.outputSingleScan([1,0]);                                     % present TMS
-        tms.trigger.condition = true;                                      % TMS condition (false = has not given pulse, ture = has given pulse)
-        tms.trigger.time = GetSecs;                                        % Acquire time
-    else 
-        s_tms.outputSingleScan([0,0]);                                     % Stop TMS
-    end
-
-    if tms.trigger.condition                                            
-        s_tms.outputSingleScan([0,0]);                                     % Stop TMS 
-        tms.trigger.condition = false;                                     % Change condition
-    end 
-
-elseif nargin == 4
-
-    if RMS && wait
-        s_tms.outputSingleScan([1,0]);                                     % present TMS
-        tms.trigger.condition = true;                                      % TMS condition (false = has not given pulse, ture = has given pulse)
-        tms.trigger.time = GetSecs;                                        % Acquire time 
-    else
-        s_tms.outputSingleScan([0,0]);                                     % Stop TMS 
-    end
-
-    if tms.trigger.condition 
-        s_tms.outputSingleScan([0,0]);                                     % Stop TMS 
-        tms.trigger.condition = false;                                     % Change condition
-    end
-
 end
+
 end

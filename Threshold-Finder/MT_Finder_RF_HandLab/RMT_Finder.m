@@ -1,8 +1,23 @@
 %% CONFIGURE
 rmtf_version = 2;   % 1 = Auto RMT-Finder
                     % 2 = Fast Auto RMT-Finder
-%% CONSTANTS
-rmtf_constants;                                                             % LOAD CONSTANTS
+                    % 3 = ?
+                    % 4 = ?
+
+% ENVIRONMENT______________________________________________________________
+% DOES MAGIC EXIST?
+% DO ALL LIBRARIES EXIST?
+addpath(genpath('D:\TMSMultiLab'));
+
+%
+subject = '001'; % prompt user for filename here
+save_folder = 'D:\HandLab\P16_MotorCognition\P16_E8_RMT\raw';
+
+
+%% CONSTANTS_______________________________________________________________
+
+%% SET UP EMG
+rmtf_emg_configure;                                                         % CONFIGURE EMG & RMS
 
 %% SET UP TMS DEVICE
 rmtf_tms_configure;                                                         % CONFIGURE MAGIC TMS COMMUNICATION
@@ -11,23 +26,24 @@ rmtf_tms_configure;                                                         % CO
 rmtf_ni_configure;                                                          % CONFIGURE NI CARD
 
 %% SET mt
-rmtf_set_mt                                                                 % INITIALIZE mt VECTOR 
+rmtf_set_mt;                                                                % INITIALIZE mt VECTOR 
 
 %% WHILE LOOP CONTROL
 run_next_intensity = true;                                                  % TRANSITION TO THE NEXT INTESNITY
 
 while run_next_intensity                                                    % INTENSITY CONTROL
 
-    %% FIND THE CURRENT INTENSITY
-    i = rmtf_midpoint(tms.intensity.min,tms.intensity.max);                 % CALCULATE MIDPOINT BETWEEN MIN INTENSITY AND MAX INTENSITY
+    %% FIND THE CURRENT INTENSITY (rounded midpoint of min and max)
+    i = round(mean([tms.intensity.min,tms.intensity.max])./tms.resolution)*tms.resolution;                 % CALCULATE MIDPOINT BETWEEN MIN INTENSITY AND MAX INTENSITY
+    idx = find(mt(:,3) == i);
 
-    %% WHETHER CURRENT i HAS BEEN TESTED
-    has_value = rmtf_has_value(mt(i,:));                                    % CHECK IF CURRENT i HAS VALUE
+    %% HAS CURRENT i BEEN TESTED?
+    has_value = sum(isnan(mt(idx,1:2)))~=2;                                 % is there a NaN in both columns 1 (hits) and 2 (misses)?
 
     if has_value                                                            % IF CURRENT i HAS VALUE
         run_next_intensity = false;                                         % STOP TEST
-        idx = find(mt(:,1) >= 5, 1, 'first');                               % INDEX FOR MOTOR THRESHOLD
-        MT = mt(idx, 1);                                                    % FIND THE MOTOR THRESHOLD
+        MT.index = find(mt(:,1) >= tms.hit, 1, 'first');                    % INDEX FOR MOTOR THRESHOLD = first intensity with at least 5 hits
+        MT.value = mt(MT.index, 3);                                         % FIND THE MOTOR THRESHOLD
     end
 
     %% IF CURRENT i has not been tested
@@ -35,95 +51,155 @@ while run_next_intensity                                                    % IN
 
         %% SET TMS, mt, T, AND CLOCK
         rmtf_set_initialization;                                            % INITIALIZATION
+                                                                            % mt = empty array for results
+                                                                            % T = n trials included in average MEP
+                                                                            % clock = time since start of last trial
 
-        drawnow;                                                            % ALLOW THE BACKGROUD CALLBACK TO UPDATA THE THE EMG DATA
+        %% PROCESS CALLBACKS
+        drawnow;                                                            % ALLOW THE BACKGROUD CALLBACK TO UPDATA THE EMG DATA
 
-        %% IS THE TIME FIFFERENCE BETWEEN THE NEXT PULSE ADN THE PREVIOUS PULSE GREATER THAN TMS INTERVAL
-        [wait,tms.clock,tms.update.time] = rmtf_wait(tms.interval,tms.trigger.time); % CHECK TIME INTERIVAL 
+        
+        %% IS THE TIME DIFFERENCE BETWEEN THE NEXT PULSE AND THE PREVIOUS PULSE GREATER THAN TMS INTERVAL
+        % IF RANDOM INTERVAL, SPECIFY HERE...
+        if rmtf_version == 1
+            tms.interval = 7.5 + (rand - 0.5) * 5;
+        end
+        
+        [wait,tms.clock,tms.update.time] = rmtf_wait(tms.interval, tms.trigger.time);% CHECK TIME INTERIVAL SINCE LAST PULSE
+                                                                            % WAIT allows you to:
+                                                                            % 1) keep collecting data after the previous TMS pulse
+                                                                            % AND
+                                                                            % 2) not present TMS until long enough has passed
+
 
         %% MEASURE RMS
-        [rms] = rmtf_measure_RMS(emg_asynch_chunk(:,emg.muscle) * ni_gain);   % MEASURE RMS FOR EACH CHUNK OF DATA
+        [rms] = rmtf_measure_RMS(emg_asynch_chunk(:,emg.muscle) * ni_gain); % MEASURE RMS FOR EACH CHUNK OF DATA
 
-        %% ASSESS RMS 
-        [rms.inrange] = rmtf_is_in_range(rms.value,emg.rms.min,emg.rms.max);  % ASSESS WHETHER RMS IS IN RANGE
+
+        %% ASSESS RMS
+        rms.inrange = rms.value >= emg.rms.min && rms.value <= emg.rms.max; % ASSESS WHETHER RMS IS IN RANGE
+
+        %% MEASURE EMG peak-to-peak                                         % eg from -50 to -10ms before end of chunk
+
+        %% ASSESS EMG peak-to-peak
+
+        %% PRESENT TMS IF RMS IS IN RANGE AND IT HAS BEEN LONG ENOUGH SINCE THE LAST PULSE
+        if rms.inrange && ~wait % && emg.inrange
+            [tms] = rmtf_present_TMS(s_tms,tms);                            % PRESENT TMS IF ALL CRITERIONS MET
+        end
+
         
-        %% PRESENT TMS 
-        [tms] = rmtf_present_TMS(s_tms,tms,rms.inrange,wait);                 % PRESENT TMS IF ALL CRITERIONS MET
-
-        %% ACQUIRE EMG 
+        %% ACQUIRE EMG ALL THE TIME (sometimes after TMS, sometimes not)
         if ~isempty(emg_asynch_data)                                        % WHEN EMG_ASYNCH_DATA COLLECTED DATA
-            
-            %% DETECT TRIGGER 
+
+
+            %% DETECT TRIGGER (has there been a recent TMS pulse?)
             [trigger] = rmtf_trigger(emg_asynch_data(:,emg.trigger), s_asynch.Rate); % WHETHER TRIGGER DETECTED
 
-            %% ACQUIRE EMG
-            if trigger.active  
-                options.before = emg.mep.record.start;                      % TIME BEFOR THE PULSE 
-                options.after  = emg.mep.record.end;                        % TIME AFTER THE PULSE
-                [asynch_data,options,wait_for_data] = rmtf_acquire_emg_asynch( ... % EXTRACT MEP WINDOW 
+
+            %% ACQUIRE EMG FROM LATEST CHUNK OF DATA
+            if trigger.active
+
+                %% extract data for each pulse
+                [asynch_data,options.mep,wait_for_data] = rmtf_acquire_emg_asynch( ... % EXTRACT MEP WINDOW
                     emg_asynch_data(:,emg.muscle) * ni_gain, ...
-                    s_asynch.Rate,trigger.onset_ms,options);
-                
-                %% SAVE MEP WINDOW (This is useful for averaging multiple pulses) 
+                    s_asynch.Rate,trigger.onset_ms,emg.mep.record);            %emg.mep.record.start/end has the same data
+
+                %% extract data for each RMS before the pulse
+                [emg_before,options.rms] = rmtf_acquire_emg_asynch (emg_asynch_data ...
+                    (:,emg.muscle) * ni_gain,s_asynch.Rate, trigger.onset_ms,emg.baseline);% update function rms.start/end
+
+
+                %% SAVE MEP WINDOW (This is useful for averaging multiple pulses)
                 if ~wait_for_data
+
+                    %% UPDATE T (TMS pulses to average before measuring MEP)
+                    T = T + 1;                                              % UPDATE T WHEN WE ACQUIRED MEP WINDOW
+                    tms.currenttrial = tms.currenttrial + 1;                % and current repetition of this intensity
+
+                    %% save variables
+                    emg.data.raw(idx,tms.currenttrial,:) = asynch_data;
                     emg.asynch.data(T,:) = asynch_data;                     % SAVE MEP WINDOW FOR CURRENT PULSE
+                    emg.baseline.raw(idx,tms.currenttrial,:) = emg_before;
+
+                    %% CLEAN BUFFER AND REOPEN S_ASYNCH
+                    stop(s_asynch);                                                 % STOP ASYNCH
+                    emg_asynch_data = [];                                           % CLEAN BUFFER
+                    emg_asynch_time = [];                                           % CLEAN BUFFER
+                    s_asynch.startBackground();                                     % START ASYNCH
                 end
 
-                %% UPDATE T
-                [T] = rmtf_update_valid(T, ~wait_for_data, 1);              % UPDATA T WHEN WE ACQUIRED MEP WINDOW
             end
 
         end
 
+
         %% CHECK WHETHER ENOUGH TRIALS HAVE BEEN COMPLETED
-        [trial.count] = rmtf_count(T,tms.trials);                           % T = trials?
+        trial.count = T == tms.trials;                                      % T = trials? (true/false)
 
-        if trial.count && ~wait_for_data                                    % WHEN HAVE ENOUGH TRIALS AND MEP WINDOW
-            
-            T = 0;
+        if trial.count && ~wait_for_data                               % WHEN HAVE ENOUGH TRIALS AND MEP WINDOW
 
-            %% CLEAN BUFFER AND REOPEN S_ASYNCH
-            stop(s_asynch);                                                 % STOP ASYNCH
-            emg_asynch_data = [];                                           % CLEAN BUFFER
-            emg_asynch_time = [];                                           % CLEAN BUFFER
-            s_asynch.startBackground();                                     % START ASYNCH
+            T = 0;                                                          % reset T to 0 (re-start the average on next repeat)
 
-            %% AVERAGE MEP
-            [average] = rmtf_average(emg.asynch.data);                      
+            %% AVERAGE MEP (across trials of 1:T)
+            average = nanmean(emg.asynch.data,1);
+            emg.data.average(idx,tms.currenttrial,:) = average;
+
 
             %% MEASURE MEP
-            options.baseline = 1:(abs(emg.mep.record.start)-1);
-            [mep,options] = MEP(average, s_asynch.Rate, abs(emg.mep.record.start),options);
+            options.mep.baseline = 1:(abs(emg.mep.record.before)-1);
+            [mep,options.mep] = MEP(average, s_asynch.Rate, abs(emg.mep.record.before),options.mep);
+
+
+            %% MEASURE BASELINE
+            emg.baseline.amplitude = max(emg_before) - min(emg_before);              % change to emg.amplitude.baseline
+
 
             %% ASSESS MEP
-            [mep.inrange] = rmtf_is_in_range(mep.amp(1),emg.mep.min,emg.mep.max); % WHETHER MEP IS IN RANGE
+            mep.criterion = emg.mep.min + emg.baseline.amplitude;                    % include the baseline peak-to-peak emg before TMS
+            mep.inrange = mep.amp(1)>=mep.criterion && mep.amp(1)<=emg.mep.max; % WHETHER MEP IS IN RANGE
+
+
+            %% save variables
+            emg.mep.summary(idx,tms.currenttrial,:) = [mep.inrange,mep.amp(1),emg.baseline.amplitude,mep.criterion,i];
+
 
             %% UPDATE mt
-            mt(i,1) = rmtf_update_valid(mt(i,1), mep.inrange, 1);           % SET mt(i,1)+1
-            mt(i,2) = rmtf_update_valid(mt(i,2), ~mep.inrange, 1);          % SET mt(i,2)+1
+            if mep.inrange
+                mt(idx,1) = mt(idx,1) + 1;                                  % HIT = SET mt(i,1)+1
+            else
+                mt(idx,2) = mt(idx,2) + 1;                                  % MISS = SET mt(i,2)+1
+            end
+
+
+            %% DISPLAY PROGRESS TO USER____________________________________
+            disp (['Trial: ',int2str(tms.currenttrial), ', Intensity: ',int2str(i),'%MSO, MEP: ',num2str(mep.amp(1),3),'mV, ',int2str(mep.inrange)]);
+
 
             %% ASSESS mt
-            [hit.count] = rmtf_count(mt(i,1),tms.hit);                      % mt(i,1) == tms.hit?
-            [miss.count] = rmtf_count(mt(i,2),tms.miss);                    % mt(i,2) == tms.miss?
-            
+            hit.count = mt(idx,1) == tms.hit;                               % mt(i,1) == tms.hit? (true/false)
+            miss.count = mt(idx,2) == tms.miss;                             % mt(i,2) == tms.miss? (true/false)
+
             if hit.count
                 %% update max intensity
-                [tms.intensity.max] = rmtf_update_valid(i, hit.count, -1);  % SET Max = i - 1
+                tms.intensity.max = i - 1;                                  % SET Max = i - 1
             elseif miss.count
                 %% update min intensity
-                [tms.intensity.min] = rmtf_update_valid(i, miss.count, 1);  % SET Min = i + 1
+                tms.intensity.min = i + 1;                                  % SET Min = i + 1
             end
+
 
             %% Exit CURRENT INTENSITY
             if hit.count || miss.count
-                has_value = 1;                                              % EXIT CURRENT INTENSITY
+                tms.intensity.sequence = [tms.intensity.sequence,i];        % SAVE INTENSITY SEQUENCE
+                has_value = true;                                           % EXIT CURRENT INTENSITY
                 TMS.disarm();                                               % DISARM TMS
+                tms.currenttrial = 0;                                       % clear tms.currenttrial
             end
-
         end
-            
+
     end
 
 end
 
-
+save(fullfile(save_folder,['RMT_Finder_',subject,'.mat']));

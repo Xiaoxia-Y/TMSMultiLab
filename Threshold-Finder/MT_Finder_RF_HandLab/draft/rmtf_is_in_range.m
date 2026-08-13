@@ -12,9 +12,9 @@ function [inrange] = rmtf_is_in_range(data,range_min,range_max)
 
 % Check whether the value is within the specified range.
 if data >= range_min && data <= range_max
-    inrange = 1;
+    inrange = true;
 else
-    inrange = 0;
+    inrange = false;
 end
 
 end

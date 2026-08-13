@@ -31,6 +31,9 @@ rmtf_set_mt;                                                                % IN
 %% DISPLAY CONSTANT
 mtfr_display_configure;
 
+%% QUEST CONFIGURE
+mtrfq_Quest_parameters;
+
 %% MVC INSTRUCTIONS
 mtfr_MVC_instructions;
 
@@ -40,24 +43,33 @@ mtfr_baseline_RMS;
 %% MEASURE MVC
 mtfr_MVC_RMS;
 
-%% percentage of MVC
+%% several percentage of MVC
 mtfr_MVC_criterion;
 
 %% Measure baseline (can be a option)
 [model] = mtfr_MVC_model(mvc.raw.data(:,:),mvc.value,mvc.inwindow.start,4000,mvc.proportion);
 
-
 %% instructions
 mtfr_present_instruction(win, wsize, main);
+WaitSecs(2);
+KbWait;
+
 
 %% WHILE LOOP CONTROL
 run_next_intensity = true;                                                  % TRANSITION TO THE NEXT INTESNITY
 
 while run_next_intensity                                                    % INTENSITY CONTROL
 
-    %% FIND THE CURRENT INTENSITY (rounded midpoint of min and max)
-    i = round(mean([tms.intensity.min,tms.intensity.max])./tms.resolution)*tms.resolution;                 % CALCULATE MIDPOINT BETWEEN MIN INTENSITY AND MAX INTENSITY
-    idx = find(mt(:,3) == i);
+    %% Choice of QUEST or Robbins–Monro stochastic approximation
+    if quest.condition
+        %% FIND THE CURRENT INTENSITY (rounded midpoint of min and max)
+        i = tms.intensity.quest;
+        idx = find (mt(:,3) == i);
+    else
+        %% FIND THE CURRENT INTENSITY (rounded midpoint of min and max)
+        i = round(mean([tms.intensity.min,tms.intensity.max])./tms.resolution)*tms.resolution;                 % CALCULATE MIDPOINT BETWEEN MIN INTENSITY AND MAX INTENSITY
+        idx = find(mt(:,3) == i);
+    end
 
     %% HAS CURRENT i BEEN TESTED?
     has_value = sum(isnan(mt(idx,1:2)))~=2;                                 % is there a NaN in both columns 1 (hits) and 2 (misses)?
@@ -110,8 +122,8 @@ while run_next_intensity                                                    % IN
             [rms.filter,bar,target,display] = mtfr_display_bar(mvc.value, ...
                 baseline.value,rms.data(end-emg.filter.size+1:end), ...
                 win,wsize,display);
-            %% filp
-
+            
+            %% filp window
             Screen('Flip',win);
 
 
@@ -204,8 +216,8 @@ while run_next_intensity                                                    % IN
 
 
             %% ASSESS MEP
-            % mep.criterion = emg.mep.min + emg.baseline.amplitude;                    % include the baseline peak-to-peak emg before TMS
-            mep.criterion = emg.mep.min +model.criterion;
+            mep.criterion = emg.mep.min + emg.baseline.amplitude;                    % include the baseline peak-to-peak emg before TMS
+            % mep.criterion = emg.mep.min + model.criterion;
             mep.inrange = mep.amp(1)>=mep.criterion && mep.amp(1)<=emg.mep.max; % WHETHER MEP IS IN RANGE
 
 
@@ -228,13 +240,21 @@ while run_next_intensity                                                    % IN
             %% ASSESS mt
             hit.count = mt(idx,1) == tms.hit;                               % mt(i,1) == tms.hit? (true/false)
             miss.count = mt(idx,2) == tms.miss;                             % mt(i,2) == tms.miss? (true/false)
-
-            if hit.count
-                %% update max intensity
-                tms.intensity.max = i - 1;                                  % SET Max = i - 1
-            elseif miss.count
-                %% update min intensity
-                tms.intensity.min = i + 1;                                  % SET Min = i + 1
+            
+            %% choice of QUEST
+            if quest.condition
+                quest.q = QuestUpdate(quest.q, tms.intensity.quest,hit.count); % UPDATE THE QUEST
+                tms.intensity.quest = round(QuestMean(quest.q));               % UPDATE INTENSITY
+                tms.intensity.quest = max(tms.intensity.min, ...
+                    min(tms.intensity.max, tms.intensity.quest));              % ? not sure, should intensity be restricted in the range ([intensity.min : intensity.max])
+            else 
+                if hit.count
+                    %% update max intensity
+                    tms.intensity.max = i - 1;                                  % SET Max = i - 1
+                elseif miss.count
+                    %% update min intensity
+                    tms.intensity.min = i + 1;                                  % SET Min = i + 1
+                end
             end
 
 
@@ -253,8 +273,3 @@ while run_next_intensity                                                    % IN
 end
 
 save(fullfile(save_folder,['RMT_Finder_',subject,'.mat']));
-
-
-
-
-%% 
